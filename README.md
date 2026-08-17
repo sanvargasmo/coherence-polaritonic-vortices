@@ -2,39 +2,39 @@
 
 Numerical study of coherence, cavity–exciton dynamics, angular momentum, reduced states, vortex-core trajectories, and spatial reconstruction in a coupled polaritonic system.
 
-This repository is a cleaned and reproducible version of the research notebooks developed for the project. The numerical implementation separates the physical model, basis construction, initial state, dynamics, reduced density matrices, observables, vortex trajectories, and spatial fields into tested Python modules.
+The project is organized as a reproducible Python implementation of the physical model. Basis construction, initial-state preparation, time evolution, reduced density matrices, observables, vortex-core trajectories, and spatial fields are implemented as separate tested modules.
 
 ## Reference calculations
 
-The angular-momentum, entropy, and spatial-density figures below use the validated reference case
+The angular-momentum, entropy, and spatial-density results use the reference configuration
 
 $$
 \bar n = |\alpha|^2 = 0.5,
 $$
 
-with cavity and exciton triangular cutoffs equal to 8. The initial finite-basis norm is approximately `0.999949558243`; the small deficit from unity is retained rather than silently renormalized so that truncation effects remain visible.
+with cavity and exciton triangular cutoffs equal to 8. For this finite basis, the initial-state norm is approximately `0.999949558243`.
 
 ### Angular momentum dynamics
 
-The cavity and exciton angular momenta exchange during the evolution while their sum remains numerically conserved within the integration tolerance.
+The cavity and exciton angular momenta exchange during the evolution, while the total angular momentum remains numerically conserved within the integration tolerance.
 
 ![Angular momentum dynamics](results/figures/lz_vs_time.png)
 
 ### Linear entropy
 
-The quantity shown is the linear entropy
+The reduced-state linear entropy is defined as
 
 $$
-S_L = 1 - \mathrm{Tr}(\rho^2),
+S_L = 1 - \mathrm{Tr}(\rho^2).
 $$
 
-computed from a reduced density matrix. For the pure bipartite state, the cavity and exciton reductions have the same purity.
+For the pure bipartite state, the cavity and exciton reduced density matrices have the same purity.
 
 ![Linear entropy](results/figures/linear_entropy_vs_time.png)
 
-### Vortex-core trajectories: low-excitation comparison
+### Vortex-core trajectories: low-excitation regime
 
-For the trajectory figure, the repository follows the presentation used in the conference poster and focuses on the low-excitation regime. The two displayed cases use the same physical parameters and differ only in the coherent-state mean excitation:
+The trajectory comparison focuses on two coherent-state mean excitations:
 
 $$
 \bar n = 0
@@ -42,19 +42,19 @@ $$
 \bar n = 0.005.
 $$
 
-The vortex-core positions are reconstructed with the same Hermite/Taylor method used in the original research notebooks. For each reduced cavity or exciton density matrix, the common Gaussian factor is removed and the spatial density is expanded around the origin as
+Both cases use the same physical parameters. The comparison highlights the evolution of the cavity and exciton vortex cores in the low-excitation regime.
+
+The vortex-core position is obtained from the reduced spatial density. After removing the common Gaussian factor, the density is expanded around the origin as
 
 $$
 F(x,y) \simeq a + bx + cy + dx^2 + ey^2 + gxy.
 $$
 
-The stationary point of this quadratic approximation is evaluated at each time and interpreted as the vortex-core position. The plotting logic also follows the original notebooks: 30 fps, duration 20, coordinates in units of $x/w$ and $y/w$, and plotting radius $R=3$; points outside that radius are omitted with line breaks.
-
-The comparison is intentionally restricted to very low excitation because larger coherent excitations can produce rapidly diverging or highly irregular core trajectories that are less useful as a compact overview figure.
+The stationary point of this quadratic expansion defines the core coordinates at each time. Trajectories are sampled at 30 fps over a duration of 20, expressed in units of $x/w$ and $y/w$, and displayed inside the radius $R=3$.
 
 ![Low-excitation vortex-core comparison](results/figures/vortex_core_trajectories.png)
 
-Individual versions of each row are also stored in `results/figures/` as `vortex_core_trajectories_nbar0.png` and `vortex_core_trajectories_nbar0005.png`.
+Individual trajectory panels are available as `results/figures/vortex_core_trajectories_nbar0.png` and `results/figures/vortex_core_trajectories_nbar0005.png`.
 
 ### Spatial reconstruction at $t=0$
 
@@ -84,22 +84,22 @@ Individual versions of each row are also stored in `results/figures/` as `vortex
 │   └── generate_reference_figures.py
 ├── tests/
 ├── results/
-│   └── figures/          # generated automatically and displayed here
+│   └── figures/
 ├── requirements.txt
 └── pyproject.toml
 ```
 
 ## Reproducibility
 
-The reference figures are not manually edited outputs. They are generated by
+The figures displayed in this README are generated with
 
 ```bash
 python examples/generate_reference_figures.py
 ```
 
-A GitHub Actions workflow runs the automated tests first, then runs the same figure-generation command when the scientific source code or figure-generation script changes, and commits updated figures to `results/figures/`. Therefore the plots displayed in this README can be viewed directly on GitHub without Codespaces.
+A GitHub Actions workflow runs the test suite and regenerates the figures when the scientific source code or figure-generation script changes. The resulting PNG files are stored in `results/figures/` and render directly on GitHub.
 
-To reproduce the calculation locally:
+To reproduce the calculations locally:
 
 ```bash
 pip install -e .
@@ -109,6 +109,4 @@ python examples/generate_reference_figures.py
 
 ## Numerical validation
 
-The test suite includes checks for basis dimensions and indexing, coherent-state parameterization, selected values from the original notebooks, sparse coupling matrices, norm conservation, reduced density matrices, linear entropy, angular momentum, the original Hermite/Taylor vortex-core trajectory method and sampling logic, and spatial-field reconstruction.
-
-The original exploratory notebooks are intentionally not published as the primary implementation because several contain duplicated code, stale execution state, or parameter values that do not match their filenames. The cleaned implementation preserves the validated physics and the original trajectory construction while making the numerical assumptions explicit.
+The test suite covers basis dimensions and indexing, coherent-state parameterization, sparse coupling matrices, norm conservation, reduced density matrices, linear entropy, angular momentum, Hermite/Taylor vortex-core trajectories, trajectory sampling, and spatial-field reconstruction.
