@@ -1,12 +1,13 @@
 """Generate tracked reference figures for the repository README.
 
-Most validation figures use the established nbar = 0.5 reference case. The
-vortex-core trajectory figure intentionally follows the conference-poster
-presentation and compares the low-excitation cases nbar = 0 and nbar = 0.005.
+The script produces three groups of results: the established nbar = 0.5
+reference figures, the low-excitation vortex-core comparison for nbar = 0 and
+nbar = 0.005, and the poster-style entropy/angular-momentum comparison for
+nbar = 0 and nbar = 1.1.
 
 The figures are written to ``results/figures`` and are generated from the
-package code; no numerical trajectories are hard-coded. GitHub Actions runs
-this script and commits the PNG files so they render directly in the README.
+package code. GitHub Actions runs this script and commits the PNG files so they
+render directly in the README.
 """
 
 from pathlib import Path
@@ -15,7 +16,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from polaritonic_vortices import SimulationConfig, simulate
-from polaritonic_vortices.observables import cavity_lz, exciton_lz
+from polaritonic_vortices.observables import (
+    cavity_lz,
+    exciton_lz,
+    rescaled_to_physical_time,
+)
 from polaritonic_vortices.reduced_density import cavity_density_matrix, linear_entropy
 from polaritonic_vortices.spatial_fields import (
     cavity_spatial_density_grid,
@@ -36,13 +41,7 @@ def _last_finite_point(xs: np.ndarray, ys: np.ndarray):
 
 
 def _trajectory_result(mean_photon_number: float):
-    """Low-excitation simulation used for the poster-style trajectory panels.
-
-    The two trajectory cases use identical model parameters and differ only in
-    ``mean_photon_number``.  A cutoff of 1 is sufficient for this deliberately
-    low-excitation comparison and matches the small-basis trajectory regime
-    used in the exploratory notebooks.
-    """
+    """Low-excitation simulation used for the trajectory panels."""
     result = simulate(
         SimulationConfig(
             cavity_cutoff=1,
@@ -58,7 +57,7 @@ def _trajectory_result(mean_photon_number: float):
 
 
 def _trajectory_curves(result):
-    """Return cavity/exciton curves with the original notebook sampling logic."""
+    """Return cavity/exciton curves with the notebook sampling convention."""
     _, cavity_x, cavity_y = trajectory_curve_like_original(
         result, "cavity", duration=20.0, fps=30, radius=3.0
     )
@@ -77,9 +76,122 @@ def _style_trajectory_axis(axis, title: str):
     axis.set_title(title)
 
 
+def _poster_observable_series(mean_photon_number: float, cutoff: int):
+    """Calculate the poster entropy and Lz curves on 0 <= t/t_g <= 4."""
+    scaled_time = np.linspace(0.0, 4.0, 400)
+
+    # A short provisional result supplies the characteristic frequency used by
+    # the model's t/t_g -> physical-time conversion.
+    provisional = simulate(
+        SimulationConfig(
+            cavity_cutoff=cutoff,
+            exciton_cutoff=cutoff,
+            mean_photon_number=mean_photon_number,
+            t_max=0.01,
+            n_times=2,
+        )
+    )
+    if not provisional.solver_success:
+        raise RuntimeError(provisional.solver_message)
+
+    physical_time = rescaled_to_physical_time(provisional, scaled_time)
+    t_max = float(physical_time[-1])
+
+    result = simulate(
+        SimulationConfig(
+            cavity_cutoff=cutoff,
+            exciton_cutoff=cutoff,
+            mean_photon_number=mean_photon_number,
+            t_max=t_max,
+            n_times=400,
+        )
+    )
+    if not result.solver_success:
+        raise RuntimeError(result.solver_message)
+
+    entropy = np.asarray(
+        [linear_entropy(cavity_density_matrix(result, float(t))) for t in physical_time]
+    )
+    lz_cavity = np.asarray(
+        [cavity_lz(result, float(t)).real for t in physical_time]
+    )
+    lz_exciton = np.asarray(
+        [exciton_lz(result, float(t)).real for t in physical_time]
+    )
+    lz_total = lz_cavity + lz_exciton
+
+    return scaled_time, entropy, lz_cavity, lz_exciton, lz_total, result
+
+
+def _draw_poster_observable_column(axes, series, nbar: float):
+    scaled_time, entropy, lz_cavity, lz_exciton, lz_total, _ = series
+
+    axes[0].plot(scaled_time, entropy, color="green", linewidth=2)
+    axes[0].set_ylim(0.0, 1.0)
+    axes[0].set_ylabel("Linear entropy")
+    axes[0].set_title(rf"$\bar n = {nbar:g}$")
+    axes[0].grid(True, linestyle="--", color="black", alpha=0.35)
+
+    axes[1].plot(
+        scaled_time,
+        lz_cavity,
+        color="palevioletred",
+        label=r"$L_{z_C}$",
+        linewidth=2,
+    )
+    axes[1].plot(
+        scaled_time,
+        lz_exciton,
+        color="#493e76",
+        label=r"$L_{z_X}$",
+        linewidth=2,
+    )
+    axes[1].plot(
+        scaled_time,
+        lz_total,
+        color="skyblue",
+        label=r"$L_{z_C}+L_{z_X}$",
+        linewidth=2,
+    )
+    axes[1].set_xlim(0.0, 4.0)
+    axes[1].set_xlabel(r"$t/t_g$")
+    axes[1].set_ylabel(r"$\langle L_z \rangle$")
+    axes[1].legend(loc="upper right")
+    axes[1].grid(True, linestyle="--", color="black", alpha=0.35)
+
+
+def _save_poster_observable_figures() -> None:
+    """Generate the entropy/Lz panels corresponding to Fig. 2 of the poster."""
+    cases = {
+        0.0: _poster_observable_series(0.0, cutoff=1),
+        1.1: _poster_observable_series(1.1, cutoff=8),
+    }
+
+    for nbar, slug in ((0.0, "nbar0"), (1.1, "nbar11")):
+        figure, axes = plt.subplots(2, 1, figsize=(6.2, 7.2), sharex=True)
+        _draw_poster_observable_column(axes, cases[nbar], nbar)
+        figure.tight_layout()
+        figure.savefig(OUTPUT_DIR / f"poster_entropy_lz_{slug}.png", dpi=220)
+        plt.close(figure)
+
+    figure, axes = plt.subplots(2, 2, figsize=(11.0, 7.5), sharex="col")
+    _draw_poster_observable_column(axes[:, 0], cases[0.0], 0.0)
+    _draw_poster_observable_column(axes[:, 1], cases[1.1], 1.1)
+    figure.suptitle("Linear entropy and angular momentum")
+    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
+    figure.savefig(OUTPUT_DIR / "poster_entropy_lz_comparison.png", dpi=220)
+    plt.close(figure)
+
+    print(
+        "Poster observable norms: "
+        f"nbar=0 -> {cases[0.0][-1].initial_norm:.12f}, "
+        f"nbar=1.1 -> {cases[1.1][-1].initial_norm:.12f}"
+    )
+
+
 def main() -> None:
     # ------------------------------------------------------------------
-    # Validated reference case used for Lz, entropy, and spatial densities.
+    # Reference case used for Lz, entropy, and spatial densities.
     # ------------------------------------------------------------------
     reference = simulate(
         SimulationConfig(
@@ -123,10 +235,7 @@ def main() -> None:
     plt.close()
 
     # ------------------------------------------------------------------
-    # Poster-style vortex-core comparison: nbar = 0 versus nbar = 0.005.
-    # These two calculations use the same parameters; only nbar changes.
-    # With coherent_phase = pi/4, nbar=0.005 corresponds to
-    # alpha_x = alpha_y = 0.05 + 0.05 i in the original coefficient notation.
+    # Vortex-core comparison: nbar = 0 versus nbar = 0.005.
     # ------------------------------------------------------------------
     trajectory_cases = [
         (0.0, _trajectory_result(0.0)),
@@ -137,8 +246,6 @@ def main() -> None:
     for nbar, result in trajectory_cases:
         curves[nbar] = _trajectory_curves(result)
 
-    # Four-panel comparison following the layout of the conference poster:
-    # Exciton/Cavity for nbar=0, then Exciton/Cavity for nbar=0.005.
     figure, axes = plt.subplots(2, 2, figsize=(8.6, 8.2), sharex=True, sharey=True)
     panel_specs = [
         (axes[0, 0], curves[0.0][2], curves[0.0][3], "Exciton", "navy"),
@@ -153,48 +260,32 @@ def main() -> None:
             axis.scatter([last[0]], [last[1]], s=22, color=line_color)
         _style_trajectory_axis(axis, title)
 
-    axes[0, 0].text(
-        0.5,
-        -0.20,
-        r"$\bar n = 0$",
-        transform=axes[0, 0].transAxes,
-        ha="center",
-        va="top",
-        fontsize=11,
-    )
-    axes[0, 1].text(
-        0.5,
-        -0.20,
-        r"$\bar n = 0$",
-        transform=axes[0, 1].transAxes,
-        ha="center",
-        va="top",
-        fontsize=11,
-    )
-    axes[1, 0].text(
-        0.5,
-        -0.20,
-        r"$\bar n = 0.005$",
-        transform=axes[1, 0].transAxes,
-        ha="center",
-        va="top",
-        fontsize=11,
-    )
-    axes[1, 1].text(
-        0.5,
-        -0.20,
-        r"$\bar n = 0.005$",
-        transform=axes[1, 1].transAxes,
-        ha="center",
-        va="top",
-        fontsize=11,
-    )
+    for axis in axes[0, :]:
+        axis.text(
+            0.5,
+            -0.20,
+            r"$\bar n = 0$",
+            transform=axis.transAxes,
+            ha="center",
+            va="top",
+            fontsize=11,
+        )
+    for axis in axes[1, :]:
+        axis.text(
+            0.5,
+            -0.20,
+            r"$\bar n = 0.005$",
+            transform=axis.transAxes,
+            ha="center",
+            va="top",
+            fontsize=11,
+        )
+
     figure.suptitle("Vortex-core trajectories in the low-excitation regime")
     figure.subplots_adjust(hspace=0.42, wspace=0.22, top=0.92, bottom=0.09)
     figure.savefig(OUTPUT_DIR / "vortex_core_trajectories.png", dpi=220)
     plt.close(figure)
 
-    # Keep separate side-by-side figures as inspectable repository results.
     for nbar, slug in [(0.0, "nbar0"), (0.005, "nbar0005")]:
         cavity_x, cavity_y, exciton_x, exciton_y = curves[nbar]
         figure, axes = plt.subplots(1, 2, figsize=(8.4, 4.0))
@@ -210,8 +301,6 @@ def main() -> None:
         figure.savefig(OUTPUT_DIR / f"vortex_core_trajectories_{slug}.png", dpi=180)
         plt.close(figure)
 
-    # Delete figures from earlier trajectory presentation variants so that the
-    # tracked output directory contains only the current intended results.
     for obsolete_name in (
         "critical_points_conditioned.png",
         "vortex_core_trajectories_combined.png",
@@ -220,6 +309,14 @@ def main() -> None:
         if obsolete.exists():
             obsolete.unlink()
 
+    # ------------------------------------------------------------------
+    # Poster entropy and angular-momentum comparison.
+    # ------------------------------------------------------------------
+    _save_poster_observable_figures()
+
+    # ------------------------------------------------------------------
+    # Spatial densities at t = 0 for the reference case.
+    # ------------------------------------------------------------------
     coordinates = np.linspace(-60.0, 60.0, 121)
     cavity_density = cavity_spatial_density_grid(
         reference, 0.0, coordinates, coordinates
@@ -261,7 +358,6 @@ def main() -> None:
     print(f"Generated figures in {OUTPUT_DIR}")
     print(f"Reference initial norm = {reference.initial_norm:.12f}")
     print(f"Reference total Lz variation = {np.ptp(lz_total):.3e}")
-    print("Trajectory comparison = nbar 0 versus 0.005")
 
 
 if __name__ == "__main__":
