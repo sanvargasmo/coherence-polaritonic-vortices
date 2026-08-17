@@ -56,6 +56,44 @@ The stationary point of this quadratic expansion defines the core coordinates at
 
 Individual trajectory panels are available as `results/figures/vortex_core_trajectories_nbar0.png` and `results/figures/vortex_core_trajectories_nbar0005.png`.
 
+### Poster comparison: linear entropy and angular momentum
+
+The dynamical comparison uses the two mean excitations shown in the poster:
+
+$$
+\bar n = 0
+\qquad\text{and}\qquad
+\bar n = 1.1.
+$$
+
+The horizontal axis is the rescaled time $t/t_g$ used in the analysis, with
+
+$$
+t = \frac{t}{t_g}\,\frac{2\pi}{g_1},
+$$
+
+where
+
+$$
+g_1 = \sqrt{\Omega^2 + \left(\frac{\Delta\Omega}{2}\right)^2}.
+$$
+
+For each case, the upper panel shows the linear entropy
+
+$$
+S_L = 1 - \mathrm{Tr}(\rho^2),
+$$
+
+and the lower panel shows the cavity, exciton, and total angular momenta,
+
+$$
+L_{z_C},\qquad L_{z_X},\qquad L_{z_C}+L_{z_X}.
+$$
+
+![Poster entropy and angular-momentum comparison](results/figures/poster_entropy_lz_comparison.png)
+
+The two cases are also available separately as `results/figures/poster_entropy_lz_nbar0.png` and `results/figures/poster_entropy_lz_nbar11.png`.
+
 ### Spatial reconstruction at $t=0$
 
 **Cavity reduced spatial density**
