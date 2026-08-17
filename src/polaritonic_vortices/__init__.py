@@ -11,6 +11,11 @@ from .reduced_density import (
     purity,
 )
 from .observables import cavity_lz, exciton_lz, total_lz
+from .trajectories import (
+    cavity_trajectory_point,
+    exciton_trajectory_point,
+    trajectory_curve_like_original,
+)
 from .spatial_fields import (
     cavity_spatial_density,
     exciton_spatial_density,
@@ -43,6 +48,9 @@ __all__ = [
     "cavity_lz",
     "exciton_lz",
     "total_lz",
+    "cavity_trajectory_point",
+    "exciton_trajectory_point",
+    "trajectory_curve_like_original",
     "cavity_spatial_density",
     "exciton_spatial_density",
     "joint_wavefunction_same_coordinate",
