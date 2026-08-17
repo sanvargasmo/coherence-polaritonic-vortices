@@ -6,4 +6,9 @@ venv/
 .env
 .DS_Store
 *.mp4
-results/
+
+# Ignore generated results by default, but keep the validated README figures.
+results/*
+!results/figures/
+results/figures/*
+!results/figures/*.png
