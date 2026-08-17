@@ -144,7 +144,7 @@ def cavity_trajectory_point(
     *,
     dimensionless: bool = True,
 ) -> tuple[float, float]:
-    """Cavity critical-point trajectory, optionally in units of x/w and y/w."""
+    """Cavity vortex-core point from the original quadratic-density method."""
     rho = cavity_density_matrix(result, time)
     coeffs = quadratic_density_coefficients(
         rho,
@@ -163,7 +163,7 @@ def exciton_trajectory_point(
     *,
     dimensionless: bool = True,
 ) -> tuple[float, float]:
-    """Exciton critical-point trajectory, optionally in units of x/w and y/w."""
+    """Exciton vortex-core point from the original quadratic-density method."""
     rho = exciton_density_matrix(result, time)
     coeffs = quadratic_density_coefficients(
         rho,
@@ -174,3 +174,54 @@ def exciton_trajectory_point(
     x, y = critical_point_from_quadratic(coeffs)
     scale = result.physical.oscillator_width if dimensionless else 1.0
     return float(np.real(x) / scale), float(np.real(y) / scale)
+
+
+def trajectory_curve_like_original(
+    result,
+    subsystem: str,
+    duration: float = 20.0,
+    fps: int = 30,
+    radius: float = 3.0,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Sample a vortex-core trajectory exactly like the notebook plots.
+
+    The research notebooks use ``n_frames = int(fps * duration)`` and
+    ``np.linspace(0, duration, n_frames, endpoint=False)``. A point is kept
+    only when it is finite and lies inside the circle ``x^2+y^2 <= radius^2``
+    in dimensionless x/w, y/w coordinates. When a point leaves that circle,
+    NaNs are inserted so Matplotlib breaks the line, matching the static plot
+    and animation logic in the original notebooks.
+    """
+    if duration <= 0:
+        raise ValueError("duration must be positive")
+    if fps <= 0:
+        raise ValueError("fps must be positive")
+    if radius <= 0:
+        raise ValueError("radius must be positive")
+    if duration > result.times[-1]:
+        raise ValueError("duration exceeds the simulated time interval")
+
+    if subsystem == "cavity":
+        point_function = cavity_trajectory_point
+    elif subsystem == "exciton":
+        point_function = exciton_trajectory_point
+    else:
+        raise ValueError("subsystem must be 'cavity' or 'exciton'")
+
+    n_frames = int(fps * duration)
+    sample_times = np.linspace(0.0, duration, n_frames, endpoint=False)
+    xs: list[float] = []
+    ys: list[float] = []
+    r2 = radius * radius
+
+    for time in sample_times:
+        x, y = point_function(result, float(time), dimensionless=True)
+        inside = np.isfinite(x) and np.isfinite(y) and (x * x + y * y <= r2)
+        if inside:
+            xs.append(x)
+            ys.append(y)
+        elif xs and ys:
+            xs.append(np.nan)
+            ys.append(np.nan)
+
+    return sample_times, np.asarray(xs, dtype=float), np.asarray(ys, dtype=float)
