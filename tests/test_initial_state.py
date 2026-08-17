@@ -56,3 +56,15 @@ def test_truncation_is_not_silently_renormalized():
     basis = ProductBasis(8, 8)
     state = InitialStateBuilder(basis, PhysicalParameters(), config).build()
     assert np.vdot(state, state).real < 1.0
+
+
+def test_historical_rounded_alpha_cases_match_saved_notebook_values():
+    # n075 notebook used alpha = 0.612372 + 0.612372j.
+    historical_nbar_075 = abs(complex(0.612372, 0.612372)) ** 2
+    _, rho_c_075 = _initial_rho_c00(historical_nbar_075, 8)
+    assert np.isclose(rho_c_075[0, 0].real, 0.16059565826288721, rtol=1e-12)
+
+    # n125/n150 notebooks used alpha = 0.790569 + 0.790569j.
+    historical_nbar_125 = abs(complex(0.790569, 0.790569)) ** 2
+    _, rho_c_125 = _initial_rho_c00(historical_nbar_125, 8)
+    assert np.isclose(rho_c_125[0, 0].real, 0.056581383660053684, rtol=1e-12)
