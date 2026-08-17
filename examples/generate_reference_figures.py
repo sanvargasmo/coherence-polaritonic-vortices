@@ -4,7 +4,8 @@ The figures are written to ``results/figures`` and are intended to be shown
 in the repository README. The simulation uses the validated package code; no
 results are hard-coded.
 
-This script is also executed automatically by GitHub Actions.
+This script is also executed automatically by GitHub Actions. The generated
+PNG files are intentionally tracked so they render directly in the README.
 """
 
 from pathlib import Path
