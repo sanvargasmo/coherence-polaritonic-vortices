@@ -9,6 +9,7 @@ from polaritonic_vortices.trajectories import (
     hermite_values_at_zero,
     oscillator_normalization_table,
     quadratic_density_coefficients,
+    trajectory_curve_like_original,
 )
 
 
@@ -124,3 +125,30 @@ def test_n05_trajectory_matches_original_reference_points(n05_short_result):
         actual_x = exciton_trajectory_point(n05_short_result, t)
         assert np.allclose(actual_c, expected_c, atol=8e-13)
         assert np.allclose(actual_x, expected_x, atol=8e-13)
+
+
+def test_trajectory_curve_uses_original_notebook_sampling(n05_short_result):
+    # Original notebooks: n_frames=int(fps*duration), endpoint=False, and
+    # radius clipping in x/w,y/w with NaN line breaks.
+    times, xs, ys = trajectory_curve_like_original(
+        n05_short_result,
+        "cavity",
+        duration=1.0,
+        fps=10,
+        radius=3.0,
+    )
+    assert np.allclose(times, np.linspace(0.0, 1.0, 10, endpoint=False))
+    assert np.allclose(
+        [xs[0], ys[0]],
+        cavity_trajectory_point(n05_short_result, 0.0),
+        atol=8e-13,
+    )
+    finite = np.isfinite(xs) & np.isfinite(ys)
+    assert np.all(xs[finite] ** 2 + ys[finite] ** 2 <= 9.0 + 1e-14)
+
+
+def test_trajectory_curve_rejects_unknown_subsystem(n05_short_result):
+    with np.testing.assert_raises(ValueError):
+        trajectory_curve_like_original(
+            n05_short_result, "polariton", duration=1.0, fps=10, radius=3.0
+        )
