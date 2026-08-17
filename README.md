@@ -8,9 +8,9 @@ This repository is a cleaned and reproducible version of the research notebooks 
 
 The angular-momentum, entropy, and spatial-density figures below use the validated reference case
 
-\[
+$$
 \bar n = |\alpha|^2 = 0.5,
-\]
+$$
 
 with cavity and exciton triangular cutoffs equal to 8. The initial finite-basis norm is approximately `0.999949558243`; the small deficit from unity is retained rather than silently renormalized so that truncation effects remain visible.
 
@@ -24,9 +24,9 @@ The cavity and exciton angular momenta exchange during the evolution while their
 
 The quantity shown is the linear entropy
 
-\[
+$$
 S_L = 1 - \mathrm{Tr}(\rho^2),
-\]
+$$
 
 computed from a reduced density matrix. For the pure bipartite state, the cavity and exciton reductions have the same purity.
 
@@ -36,19 +36,19 @@ computed from a reduced density matrix. For the pure bipartite state, the cavity
 
 For the trajectory figure, the repository follows the presentation used in the conference poster and focuses on the low-excitation regime. The two displayed cases use the same physical parameters and differ only in the coherent-state mean excitation:
 
-\[
+$$
 \bar n = 0
 \qquad\text{and}\qquad
 \bar n = 0.005.
-\]
+$$
 
 The vortex-core positions are reconstructed with the same Hermite/Taylor method used in the original research notebooks. For each reduced cavity or exciton density matrix, the common Gaussian factor is removed and the spatial density is expanded around the origin as
 
-\[
-F(x,y) \simeq a + b x + c y + d x^2 + e y^2 + gxy.
-\]
+$$
+F(x,y) \simeq a + bx + cy + dx^2 + ey^2 + gxy.
+$$
 
-The stationary point of this quadratic approximation is evaluated at each time and interpreted as the vortex-core position. The plotting logic also follows the original notebooks: `30 fps`, duration `20`, coordinates in units of `x/w` and `y/w`, and plotting radius `R = 3`; points outside that radius are omitted with line breaks.
+The stationary point of this quadratic approximation is evaluated at each time and interpreted as the vortex-core position. The plotting logic also follows the original notebooks: 30 fps, duration 20, coordinates in units of $x/w$ and $y/w$, and plotting radius $R=3$; points outside that radius are omitted with line breaks.
 
 The comparison is intentionally restricted to very low excitation because larger coherent excitations can produce rapidly diverging or highly irregular core trajectories that are less useful as a compact overview figure.
 
@@ -56,7 +56,7 @@ The comparison is intentionally restricted to very low excitation because larger
 
 Individual versions of each row are also stored in `results/figures/` as `vortex_core_trajectories_nbar0.png` and `vortex_core_trajectories_nbar0005.png`.
 
-### Spatial reconstruction at t = 0
+### Spatial reconstruction at $t=0$
 
 **Cavity reduced spatial density**
 
