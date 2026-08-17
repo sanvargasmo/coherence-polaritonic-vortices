@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "src/**"
+      - "tests/**"
       - "examples/generate_reference_figures.py"
       - "pyproject.toml"
       - "requirements.txt"
@@ -25,10 +26,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install package
+      - name: Install package and test runner
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+          pip install pytest
+
+      - name: Run tests
+        run: pytest -q
 
       - name: Generate figures
         run: python examples/generate_reference_figures.py
