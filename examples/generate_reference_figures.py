@@ -20,70 +20,30 @@ from polaritonic_vortices.spatial_fields import (
     cavity_spatial_density_grid,
     exciton_spatial_density_grid,
 )
-from polaritonic_vortices.trajectories import (
-    quadratic_density_coefficients,
-    critical_point_from_quadratic,
-)
-from polaritonic_vortices.reduced_density import exciton_density_matrix
+from polaritonic_vortices.trajectories import trajectory_curve_like_original
 
 
 OUTPUT_DIR = Path("results/figures")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def conditioned_critical_points(result, subsystem: str):
-    """Return well-conditioned critical-point locations for visualization.
-
-    The quadratic critical-point formula becomes numerically unstable when
-    ``|4*d*e - g**2|`` is very small. For the presentation figure only, the
-    lowest 15% of determinant magnitudes and the largest 10% of radii are
-    omitted. The underlying unfiltered trajectory functions remain available
-    in the package and are used by the regression tests.
-    """
-    if subsystem == "cavity":
-        density = cavity_density_matrix
-        cutoff = result.basis.cavity_cutoff
-        index = result.basis.cavity_index
-    elif subsystem == "exciton":
-        density = exciton_density_matrix
-        cutoff = result.basis.exciton_cutoff
-        index = result.basis.exciton_index
-    else:
-        raise ValueError("subsystem must be 'cavity' or 'exciton'")
-
-    width = result.physical.oscillator_width
-    xs, ys, determinants = [], [], []
-
-    for time in result.times:
-        coeffs = quadratic_density_coefficients(
-            density(result, float(time)), cutoff, index, width
-        )
-        determinant = 4.0 * coeffs["d"] * coeffs["e"] - coeffs["g"] ** 2
-        x, y = critical_point_from_quadratic(coeffs)
-        xs.append(float(np.real(x) / width))
-        ys.append(float(np.real(y) / width))
-        determinants.append(abs(determinant))
-
-    xs = np.asarray(xs)
-    ys = np.asarray(ys)
-    determinants = np.asarray(determinants)
-    radii = np.hypot(xs, ys)
-
-    valid = (
-        determinants >= np.quantile(determinants, 0.15)
-    ) & (
-        radii <= np.quantile(radii, 0.90)
-    )
-    return xs[valid], ys[valid], result.times[valid]
+def _last_finite_point(xs: np.ndarray, ys: np.ndarray):
+    mask = np.isfinite(xs) & np.isfinite(ys)
+    if not np.any(mask):
+        return None
+    return xs[mask][-1], ys[mask][-1]
 
 
 def main() -> None:
+    # The original trajectory plots use a duration of 20 at 30 fps. The
+    # simulation therefore covers that full interval, while retaining the
+    # validated nbar=0.5 and cutoff=8 reference setup.
     config = SimulationConfig(
         cavity_cutoff=8,
         exciton_cutoff=8,
         mean_photon_number=0.5,
-        t_max=10.0,
-        n_times=201,
+        t_max=20.0,
+        n_times=401,
     )
     result = simulate(config)
     if not result.solver_success:
@@ -118,18 +78,58 @@ def main() -> None:
     plt.savefig(OUTPUT_DIR / "linear_entropy_vs_time.png", dpi=180)
     plt.close()
 
-    x_c, y_c, t_c = conditioned_critical_points(result, "cavity")
-    x_x, y_x, t_x = conditioned_critical_points(result, "exciton")
-    plt.figure(figsize=(7, 6))
-    plt.scatter(x_c, y_c, c=t_c, cmap="Blues", s=28, alpha=0.85, label="Cavity")
-    plt.scatter(x_x, y_x, c=t_x, cmap="Oranges", s=28, alpha=0.85, marker="s", label="Exciton")
-    plt.xlabel("x / w")
-    plt.ylabel("y / w")
-    plt.title("Conditioned critical-point locations (n̄ = 0.5)")
+    # Reproduce the trajectory plotting logic used in the original notebooks:
+    # 30 fps, duration=20, radius R=3, NaNs to break the line outside R.
+    _, cavity_x, cavity_y = trajectory_curve_like_original(
+        result, "cavity", duration=20.0, fps=30, radius=3.0
+    )
+    _, exciton_x, exciton_y = trajectory_curve_like_original(
+        result, "exciton", duration=20.0, fps=30, radius=3.0
+    )
+
+    figure, axes = plt.subplots(1, 2, figsize=(8.4, 4.0))
+    trajectory_specs = [
+        (axes[0], cavity_x, cavity_y, "red", "darkred", "Cavity vortex core"),
+        (axes[1], exciton_x, exciton_y, "blue", "navy", "Exciton vortex core"),
+    ]
+    for axis, xs, ys, line_color, point_color, title in trajectory_specs:
+        axis.plot(xs, ys, color=line_color, lw=1.5)
+        last = _last_finite_point(xs, ys)
+        if last is not None:
+            axis.scatter([last[0]], [last[1]], s=40, color=point_color)
+        axis.set_xlim(-3.0, 3.0)
+        axis.set_ylim(-3.0, 3.0)
+        axis.set_aspect("equal")
+        axis.set_xlabel("x/w")
+        axis.set_ylabel("y/w")
+        axis.set_title(title)
+    figure.suptitle("Vortex-core trajectories (n̄ = 0.5)")
+    figure.tight_layout()
+    figure.savefig(OUTPUT_DIR / "vortex_core_trajectories.png", dpi=180)
+    plt.close(figure)
+
+    # A combined view is useful for direct cavity/exciton comparison while
+    # preserving exactly the same sampled points as the original-style plots.
+    plt.figure(figsize=(6.5, 6.0))
+    plt.plot(cavity_x, cavity_y, color="red", lw=1.4, label="Cavity")
+    plt.plot(exciton_x, exciton_y, color="blue", lw=1.4, label="Exciton")
+    plt.xlim(-3.0, 3.0)
+    plt.ylim(-3.0, 3.0)
+    plt.gca().set_aspect("equal")
+    plt.xlabel("x/w")
+    plt.ylabel("y/w")
+    plt.title("Cavity and exciton vortex-core trajectories (n̄ = 0.5)")
     plt.legend()
     plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "critical_points_conditioned.png", dpi=180)
+    plt.savefig(OUTPUT_DIR / "vortex_core_trajectories_combined.png", dpi=180)
     plt.close()
+
+    # Remove the earlier presentation-only figure based on percentile
+    # conditioning. It did not reproduce the visualization used in the source
+    # notebooks and should not remain as a primary repository result.
+    obsolete = OUTPUT_DIR / "critical_points_conditioned.png"
+    if obsolete.exists():
+        obsolete.unlink()
 
     coordinates = np.linspace(-60.0, 60.0, 121)
     cavity_density = cavity_spatial_density_grid(
