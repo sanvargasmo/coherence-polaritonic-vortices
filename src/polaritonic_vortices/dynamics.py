@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from collections.abc import Callable
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.sparse import coo_matrix, csr_matrix
@@ -53,26 +54,28 @@ class SimulationResult:
     a_plus: csr_matrix
     solver_success: bool
     solver_message: str
+    dense_solution: Callable[[float], np.ndarray] | None = field(default=None, repr=False)
 
     @property
     def initial_norm(self) -> float:
         return float(np.vdot(self.initial_state, self.initial_state).real)
 
     def state_at(self, time: float) -> np.ndarray:
-        """Return the state at an arbitrary time by interpolation of the saved grid."""
+        """Return the state at an arbitrary time using the solver interpolant.
+
+        The stable research notebooks used ``solve_ivp(..., dense_output=True)``
+        and evaluated ``sol.sol(t)``. Keeping the dense interpolant avoids the
+        appreciable phase error that linear interpolation can introduce for
+        rapidly oscillating complex amplitudes.
+        """
         t = float(time)
         if t <= self.times[0]:
             return self.states[:, 0]
         if t >= self.times[-1]:
             return self.states[:, -1]
-        k = int(np.searchsorted(self.times, t))
-        if self.times[k] == t:
-            return self.states[:, k]
-        if self.times[k - 1] == t:
-            return self.states[:, k - 1]
-        t0, t1 = self.times[k - 1], self.times[k]
-        weight = (t - t0) / (t1 - t0)
-        return (1.0 - weight) * self.states[:, k - 1] + weight * self.states[:, k]
+        if self.dense_solution is None:
+            raise RuntimeError("Dense solver output is unavailable")
+        return np.asarray(self.dense_solution(t), dtype=np.complex128).reshape(-1)
 
     def coefficient_matrix_at(self, time: float) -> np.ndarray:
         return self.state_at(time).reshape(self.basis.n_cavity, self.basis.n_exciton)
@@ -102,7 +105,7 @@ def simulate(
         rtol=config.rtol,
         atol=config.atol,
         method=config.method,
-        dense_output=False,
+        dense_output=True,
     )
     return SimulationResult(
         basis=basis,
@@ -115,4 +118,5 @@ def simulate(
         a_plus=a_plus,
         solver_success=bool(solution.success),
         solver_message=str(solution.message),
+        dense_solution=solution.sol,
     )
