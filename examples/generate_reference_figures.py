@@ -1,364 +1,163 @@
-"""Generate tracked reference figures for the repository README.
+"""Regenerate corrected plots from the cutoff-free coherent-vortex solution.
 
-The script produces three groups of results: the established nbar = 0.5
-reference figures, the low-excitation vortex-core comparison for nbar = 0 and
-nbar = 0.005, and the poster-style entropy/angular-momentum comparison for
-nbar = 0 and nbar = 1.1.
-
-The figures are written to ``results/figures`` and are generated from the
-package code. GitHub Actions runs this script and commits the PNG files so they
-render directly in the README.
+Run from the repository root. PNG/PDF pairs, sampled data and validation.json
+are written to results/figures. All spatial plots use the documented common
+rotating frame. Alpha labels describe each coherent background, not the mean
+occupation of the final vortex-modified state.
 """
-
+import argparse
+import json
 from pathlib import Path
-
-import matplotlib.pyplot as plt
+import sys
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'src'))
 import numpy as np
-
-from polaritonic_vortices import SimulationConfig, simulate
-from polaritonic_vortices.observables import (
-    cavity_lz,
-    exciton_lz,
-    rescaled_to_physical_time,
-)
-from polaritonic_vortices.reduced_density import cavity_density_matrix, linear_entropy
-from polaritonic_vortices.spatial_fields import (
-    cavity_spatial_density_grid,
-    exciton_spatial_density_grid,
-)
-from polaritonic_vortices.trajectories import trajectory_curve_like_original
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import fontManager, FontProperties
+from polaritonic_vortices import ExactCoherentEvolution, SimulationConfig
+from polaritonic_vortices.density_minima import track_density_minimum, DensityProfile
 
 
-OUTPUT_DIR = Path("results/figures")
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+def save(fig, directory, name):
+    fig.savefig(directory/(name+'.png'),dpi=190,bbox_inches='tight',facecolor='white')
+    fig.savefig(directory/(name+'.pdf'),bbox_inches='tight',facecolor='white')
+    plt.close(fig)
 
 
-def _last_finite_point(xs: np.ndarray, ys: np.ndarray):
-    mask = np.isfinite(xs) & np.isfinite(ys)
-    if not np.any(mask):
-        return None
-    return xs[mask][-1], ys[mask][-1]
+def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--output',type=Path,default=Path('results/figures'))
+    parser.add_argument('--font-path',type=Path)
+    parser.add_argument('--reuse-tracks',action='store_true',help='Reuse previously verified tracking samples for layout-only edits')
+    args=parser.parse_args(); out=args.output; out.mkdir(parents=True,exist_ok=True)
+    if args.font_path:
+        fontManager.addfont(str(args.font_path))
+        font=FontProperties(fname=str(args.font_path)).get_name()
+    else:
+        font='DejaVu Serif'
+    plt.rcParams.update({'font.family':font,'font.size':12,'axes.titlesize':15,
+                         'axes.spines.top':False,'axes.spines.right':False,
+                         'axes.labelsize':12,'legend.fontsize':10,
+                         'mathtext.fontset':'dejavuserif'})
+    cavity_color='#B83C62'; exciton_color='#493E76'; green='#78952F'
+    evolutions={a:ExactCoherentEvolution(SimulationConfig(mean_photon_number=a)) for a in [0.,.005,.5,1.1]}
+    scaled=np.linspace(0,4,801)
+    e0=evolutions[0.]; tg=2*np.pi/e0.g
+    times=scaled*tg
+    series={}; report={'frame':'common rotating at (Ecal_C+Ecal_X)/(2*hbar)',
+                       'delta_ps_inv':e0.delta,'tg_ps':tg,
+                       'method':'Exact coherent displacement plus conserved total-excitation <=2 seed',
+                       'alpha_label':'|alpha|^2 per Cartesian coherent background, before vortex factor',
+                       'cases':{}}
+    for a,e in evolutions.items():
+        entropy=np.array([e.entropy(t) for t in times])
+        lc=np.array([e.angular_momentum(t,'cavity') for t in times])
+        lx=np.array([e.angular_momentum(t,'exciton') for t in times])
+        series[a]=(entropy,lc,lx)
+        np.savez(out/f'observables_alpha2_{a:g}.npz',scaled_time=scaled,time_ps=times,entropy=entropy,lz_cavity=lc,lz_exciton=lx)
+        report['cases'][str(a)]={'initial_entropy':float(entropy[0]),
+            'total_lz_variation':float(np.ptp(lc+lx)),
+            'max_seed_norm_error':float(max(abs(np.vdot(e.seed_matrix(t),e.seed_matrix(t)).real-1) for t in times[::10]))}
+    def draw_column(ax,e,a):
+        entropy,lc,lx=series[a]
+        ax[0].plot(scaled,entropy,color=green,lw=2)
+        ax[0].set(title=rf'$|\alpha|^2={a:g}$',ylim=(-.015,.6),ylabel=r'Linear entropy $S_L$')
+        ax[1].plot(scaled,lc,color=cavity_color,lw=2,label='Cavity')
+        ax[1].plot(scaled,lx,color=exciton_color,lw=2,label='Exciton')
+        ax[1].plot(scaled,lc+lx,color='#389AB4',lw=1.6,ls='--',label='Total')
+        ax[1].set(xlabel=r'$t/t_g$',ylabel=r'$\langle L_z\rangle/\hbar$',xlim=(0,4))
+        ax[1].legend(ncol=3,loc='upper center',bbox_to_anchor=(.5,-.25),frameon=False)
+        for axis in ax:
+            axis.grid(alpha=.18)
+    fig,axes=plt.subplots(2,2,figsize=(12,7),sharex=True,layout='constrained')
+    for i,a in enumerate([0.,1.1]): draw_column(axes[:,i],evolutions[a],a)
+    fig.suptitle('Light–matter entanglement and angular-momentum exchange',fontsize=18)
+    save(fig,out,'poster_entropy_lz_comparison')
+    for a,slug in [(0.,'nbar0'),(1.1,'nbar11')]:
+        fig,axes=plt.subplots(2,1,figsize=(7,7),sharex=True,layout='constrained')
+        draw_column(axes,evolutions[a],a); save(fig,out,'poster_entropy_lz_'+slug)
+    fig,axes=plt.subplots(2,1,figsize=(9,7),sharex=True,layout='constrained')
+    draw_column(axes,evolutions[.5],.5); save(fig,out,'reference_observables')
+    fig,ax=plt.subplots(figsize=(8,4.3),layout='constrained')
+    ax.plot(times,series[.5][0],color=green,lw=2); ax.set(xlabel='Time (ps)',ylabel=r'$S_L$',title=r'Linear entropy: $|\alpha|^2=0.5$')
+    save(fig,out,'linear_entropy_vs_time')
+    fig,ax=plt.subplots(figsize=(8,4.3),layout='constrained')
+    for data,col,label in [(series[.5][1],cavity_color,'Cavity'),(series[.5][2],exciton_color,'Exciton'),(series[.5][1]+series[.5][2],'#389AB4','Total')]:
+        ax.plot(times,data,color=col,label=label)
+    ax.set(xlabel='Time (ps)',ylabel=r'$\langle L_z\rangle/\hbar$',title=r'Angular-momentum exchange: $|\alpha|^2=0.5$'); ax.legend()
+    save(fig,out,'lz_vs_time')
+    print('Observable figures saved',flush=True)
+
+    trajectory_times=np.linspace(0,20,601)
+    fig,axes=plt.subplots(2,2,figsize=(10,9),sharex=True,sharey=True,layout='constrained')
+    for row,a in enumerate([0.,.005]):
+        e=evolutions[a]
+        tracks={}
+        for col,(sub,color) in enumerate([('exciton',exciton_color),('cavity',cavity_color)]):
+            cache=out/f'density_minima_alpha2_{a:g}_{sub}.npz'
+            track=(np.load(cache)['xy_over_w'] if args.reuse_tracks and cache.exists()
+                   else track_density_minimum(e,trajectory_times,sub))
+            tracks[sub]=track
+            np.savez(out/f'density_minima_alpha2_{a:g}_{sub}.npz',time_ps=trajectory_times,xy_over_w=track)
+            valid=np.isfinite(track).all(axis=1)
+            report['cases'][str(a)][sub+'_minimum_coverage']=float(np.mean(valid))
+            ax=axes[row,col]
+            ax.plot(track[:,0],track[:,1],color=color,lw=1.2)
+            ax.scatter(*track[0],marker='x',s=60,color='black',zorder=5)
+            ax.set(title=rf'{sub.capitalize()} · $|\alpha|^2={a:g}$',xlim=(-3,3),ylim=(-3,3),xlabel=r'$x/w$',ylabel=r'$y/w$',aspect='equal')
+            ax.grid(alpha=.15)
+        fig2,ax2=plt.subplots(1,2,figsize=(10,4.7),layout='constrained')
+        for ax,sub,color in zip(ax2,['exciton','cavity'],[exciton_color,cavity_color]):
+            track=tracks[sub]; ax.plot(track[:,0],track[:,1],color=color,lw=1.2)
+            ax.scatter(*track[0],marker='x',s=60,c='black')
+            ax.set(title=sub.capitalize(),xlim=(-3,3),ylim=(-3,3),xlabel=r'$x/w$',ylabel=r'$y/w$',aspect='equal')
+        fig2.suptitle(rf'Local density-minimum tracks: $|\alpha|^2={a:g}$')
+        fig2.supxlabel('Common rotating frame · 0–20 ps · gaps indicate no accepted local minimum',fontsize=10)
+        save(fig2,out,'vortex_core_trajectories_'+('nbar0' if a==0 else 'nbar0005'))
+        print('Minimum tracks saved for alpha2 =',a,flush=True)
+    fig.suptitle('Tracked local minima of the full spatial density',fontsize=18)
+    fig.supxlabel('Common rotating frame · 0–20 ps · × initial core · gaps indicate no accepted local minimum',fontsize=10)
+    save(fig,out,'vortex_core_trajectories')
+
+    e=evolutions[.5]; w=e.physical.oscillator_width; q=np.linspace(-3.5,3.5,281)
+    fractions=[0.,.125,.25]
+    fig,axes=plt.subplots(2,3,figsize=(12,8),sharex=True,sharey=True,layout='constrained')
+    grids={(sub,j):w*w*e.spatial_density_grid(frac*tg,sub,q*w,q*w) for sub in ['cavity','exciton'] for j,frac in enumerate(fractions)}
+    vmax=max(float(g.max()) for g in grids.values())
+    for row,sub in enumerate(['cavity','exciton']):
+        for j,frac in enumerate(fractions):
+            ax=axes[row,j]; im=ax.imshow(grids[sub,j],extent=[q[0],q[-1],q[0],q[-1]],origin='lower',vmin=0,vmax=vmax,cmap='viridis')
+            ax.set(title=rf'{sub.capitalize()} · $t/t_g={frac:g}$',xlabel=(r'$x/w$' if row==1 else ''),ylabel=r'$y/w$')
+            if j==0:
+                x0=getattr(e.physical,sub+'_x')/w; y0=getattr(e.physical,sub+'_y')/w
+                ax.scatter(x0,y0,marker='+',c='white',s=75,lw=1.4)
+    fig.colorbar(im,ax=axes,label=r'$w^2D(x,y,t)$',shrink=.75)
+    fig.suptitle(r'Spatial dynamics: $|\alpha|^2=0.5$',fontsize=18)
+    fig.supxlabel('Common rotating frame · common color scale · + prepared initial core',fontsize=10)
+    save(fig,out,'spatial_density_evolution')
+    fig,axes=plt.subplots(1,2,figsize=(10,4.8),layout='constrained')
+    for ax,sub in zip(axes,['cavity','exciton']):
+        im=ax.imshow(grids[sub,0],extent=[q[0],q[-1],q[0],q[-1]],origin='lower',vmin=0,vmax=vmax,cmap='viridis')
+        ax.scatter(getattr(e.physical,sub+'_x')/w,getattr(e.physical,sub+'_y')/w,marker='+',c='white',s=75)
+        ax.set(title=sub.capitalize(),xlabel=r'$x/w$',ylabel=r'$y/w$')
+    fig.colorbar(im,ax=axes,label=r'$w^2D(x,y,0)$',shrink=.8)
+    fig.suptitle(r'Initial vortex densities: $|\alpha|^2=0.5$')
+    save(fig,out,'initial_spatial_densities')
+    for sub in ['cavity','exciton']:
+        fig,ax=plt.subplots(figsize=(5.7,5),layout='constrained')
+        im=ax.imshow(grids[sub,0],extent=[q[0],q[-1],q[0],q[-1]],origin='lower',vmin=0,vmax=vmax,cmap='viridis')
+        ax.set(title=sub.capitalize()+r' density at $t=0$, $|\alpha|^2=0.5$',xlabel=r'$x/w$',ylabel=r'$y/w$')
+        fig.colorbar(im,ax=ax,label=r'$w^2D(x,y,0)$')
+        save(fig,out,sub+'_density_t0')
+    # Full exact-state Fock projections: a check of why finite cutoffs matter.
+    report['fock_projection_missing_probability']={}
+    for cutoff in [8,12,16,20,24]:
+        missing=max(max(0.,1-np.vdot(c,c).real) for t in times[::40] for c in [evolutions[1.1].fock_matrix(t,cutoff)])
+        report['fock_projection_missing_probability'][str(cutoff)]=float(missing)
+    (out/'validation.json').write_text(json.dumps(report,indent=2),encoding='utf8')
+    print(json.dumps(report,indent=2),flush=True)
 
 
-def _trajectory_result(mean_photon_number: float):
-    """Low-excitation simulation used for the trajectory panels."""
-    result = simulate(
-        SimulationConfig(
-            cavity_cutoff=1,
-            exciton_cutoff=1,
-            mean_photon_number=mean_photon_number,
-            t_max=20.0,
-            n_times=401,
-        )
-    )
-    if not result.solver_success:
-        raise RuntimeError(result.solver_message)
-    return result
-
-
-def _trajectory_curves(result):
-    """Return cavity/exciton curves with the notebook sampling convention."""
-    _, cavity_x, cavity_y = trajectory_curve_like_original(
-        result, "cavity", duration=20.0, fps=30, radius=3.0
-    )
-    _, exciton_x, exciton_y = trajectory_curve_like_original(
-        result, "exciton", duration=20.0, fps=30, radius=3.0
-    )
-    return cavity_x, cavity_y, exciton_x, exciton_y
-
-
-def _style_trajectory_axis(axis, title: str):
-    axis.set_xlim(-3.0, 3.0)
-    axis.set_ylim(-3.0, 3.0)
-    axis.set_aspect("equal")
-    axis.set_xlabel("x/w")
-    axis.set_ylabel("y/w")
-    axis.set_title(title)
-
-
-def _poster_observable_series(mean_photon_number: float, cutoff: int):
-    """Calculate the poster entropy and Lz curves on 0 <= t/t_g <= 4."""
-    scaled_time = np.linspace(0.0, 4.0, 400)
-
-    # A short provisional result supplies the characteristic frequency used by
-    # the model's t/t_g -> physical-time conversion.
-    provisional = simulate(
-        SimulationConfig(
-            cavity_cutoff=cutoff,
-            exciton_cutoff=cutoff,
-            mean_photon_number=mean_photon_number,
-            t_max=0.01,
-            n_times=2,
-        )
-    )
-    if not provisional.solver_success:
-        raise RuntimeError(provisional.solver_message)
-
-    physical_time = rescaled_to_physical_time(provisional, scaled_time)
-    t_max = float(physical_time[-1])
-
-    result = simulate(
-        SimulationConfig(
-            cavity_cutoff=cutoff,
-            exciton_cutoff=cutoff,
-            mean_photon_number=mean_photon_number,
-            t_max=t_max,
-            n_times=400,
-        )
-    )
-    if not result.solver_success:
-        raise RuntimeError(result.solver_message)
-
-    entropy = np.asarray(
-        [linear_entropy(cavity_density_matrix(result, float(t))) for t in physical_time]
-    )
-    lz_cavity = np.asarray(
-        [cavity_lz(result, float(t)).real for t in physical_time]
-    )
-    lz_exciton = np.asarray(
-        [exciton_lz(result, float(t)).real for t in physical_time]
-    )
-    lz_total = lz_cavity + lz_exciton
-
-    return scaled_time, entropy, lz_cavity, lz_exciton, lz_total, result
-
-
-def _draw_poster_observable_column(axes, series, nbar: float):
-    scaled_time, entropy, lz_cavity, lz_exciton, lz_total, _ = series
-
-    axes[0].plot(scaled_time, entropy, color="green", linewidth=2)
-    axes[0].set_ylim(0.0, 1.0)
-    axes[0].set_ylabel("Linear entropy")
-    axes[0].set_title(rf"$\bar n = {nbar:g}$")
-    axes[0].grid(True, linestyle="--", color="black", alpha=0.35)
-
-    axes[1].plot(
-        scaled_time,
-        lz_cavity,
-        color="palevioletred",
-        label=r"$L_{z_C}$",
-        linewidth=2,
-    )
-    axes[1].plot(
-        scaled_time,
-        lz_exciton,
-        color="#493e76",
-        label=r"$L_{z_X}$",
-        linewidth=2,
-    )
-    axes[1].plot(
-        scaled_time,
-        lz_total,
-        color="skyblue",
-        label=r"$L_{z_C}+L_{z_X}$",
-        linewidth=2,
-    )
-    axes[1].set_xlim(0.0, 4.0)
-    axes[1].set_xlabel(r"$t/t_g$")
-    axes[1].set_ylabel(r"$\langle L_z \rangle$")
-    axes[1].legend(loc="upper right")
-    axes[1].grid(True, linestyle="--", color="black", alpha=0.35)
-
-
-def _save_poster_observable_figures() -> None:
-    """Generate the entropy/Lz panels corresponding to Fig. 2 of the poster."""
-    cases = {
-        0.0: _poster_observable_series(0.0, cutoff=1),
-        1.1: _poster_observable_series(1.1, cutoff=8),
-    }
-
-    for nbar, slug in ((0.0, "nbar0"), (1.1, "nbar11")):
-        figure, axes = plt.subplots(2, 1, figsize=(6.2, 7.2), sharex=True)
-        _draw_poster_observable_column(axes, cases[nbar], nbar)
-        figure.tight_layout()
-        figure.savefig(OUTPUT_DIR / f"poster_entropy_lz_{slug}.png", dpi=220)
-        plt.close(figure)
-
-    figure, axes = plt.subplots(2, 2, figsize=(11.0, 7.5), sharex="col")
-    _draw_poster_observable_column(axes[:, 0], cases[0.0], 0.0)
-    _draw_poster_observable_column(axes[:, 1], cases[1.1], 1.1)
-    figure.suptitle("Linear entropy and angular momentum")
-    figure.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
-    figure.savefig(OUTPUT_DIR / "poster_entropy_lz_comparison.png", dpi=220)
-    plt.close(figure)
-
-    print(
-        "Poster observable norms: "
-        f"nbar=0 -> {cases[0.0][-1].initial_norm:.12f}, "
-        f"nbar=1.1 -> {cases[1.1][-1].initial_norm:.12f}"
-    )
-
-
-def main() -> None:
-    # ------------------------------------------------------------------
-    # Reference case used for Lz, entropy, and spatial densities.
-    # ------------------------------------------------------------------
-    reference = simulate(
-        SimulationConfig(
-            cavity_cutoff=8,
-            exciton_cutoff=8,
-            mean_photon_number=0.5,
-            t_max=10.0,
-            n_times=201,
-        )
-    )
-    if not reference.solver_success:
-        raise RuntimeError(reference.solver_message)
-
-    times = reference.times
-    lz_cavity = np.asarray([cavity_lz(reference, float(t)).real for t in times])
-    lz_exciton = np.asarray([exciton_lz(reference, float(t)).real for t in times])
-    lz_total = lz_cavity + lz_exciton
-    entropy = np.asarray(
-        [linear_entropy(cavity_density_matrix(reference, float(t))) for t in times]
-    )
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(times, lz_cavity, label="Cavity")
-    plt.plot(times, lz_exciton, label="Exciton")
-    plt.plot(times, lz_total, label="Total")
-    plt.xlabel("Time")
-    plt.ylabel("Lz")
-    plt.title("Angular momentum vs time (n̄ = 0.5)")
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "lz_vs_time.png", dpi=180)
-    plt.close()
-
-    plt.figure(figsize=(8, 5))
-    plt.plot(times, entropy)
-    plt.xlabel("Time")
-    plt.ylabel("Linear entropy")
-    plt.title("Linear entropy vs time (n̄ = 0.5)")
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "linear_entropy_vs_time.png", dpi=180)
-    plt.close()
-
-    # ------------------------------------------------------------------
-    # Vortex-core comparison: nbar = 0 versus nbar = 0.005.
-    # ------------------------------------------------------------------
-    trajectory_cases = [
-        (0.0, _trajectory_result(0.0)),
-        (0.005, _trajectory_result(0.005)),
-    ]
-
-    curves = {}
-    for nbar, result in trajectory_cases:
-        curves[nbar] = _trajectory_curves(result)
-
-    figure, axes = plt.subplots(2, 2, figsize=(8.6, 8.2), sharex=True, sharey=True)
-    panel_specs = [
-        (axes[0, 0], curves[0.0][2], curves[0.0][3], "Exciton", "navy"),
-        (axes[0, 1], curves[0.0][0], curves[0.0][1], "Cavity", "crimson"),
-        (axes[1, 0], curves[0.005][2], curves[0.005][3], "Exciton", "navy"),
-        (axes[1, 1], curves[0.005][0], curves[0.005][1], "Cavity", "crimson"),
-    ]
-    for axis, xs, ys, title, line_color in panel_specs:
-        axis.plot(xs, ys, color=line_color, lw=1.35)
-        last = _last_finite_point(xs, ys)
-        if last is not None:
-            axis.scatter([last[0]], [last[1]], s=22, color=line_color)
-        _style_trajectory_axis(axis, title)
-
-    for axis in axes[0, :]:
-        axis.text(
-            0.5,
-            -0.20,
-            r"$\bar n = 0$",
-            transform=axis.transAxes,
-            ha="center",
-            va="top",
-            fontsize=11,
-        )
-    for axis in axes[1, :]:
-        axis.text(
-            0.5,
-            -0.20,
-            r"$\bar n = 0.005$",
-            transform=axis.transAxes,
-            ha="center",
-            va="top",
-            fontsize=11,
-        )
-
-    figure.suptitle("Vortex-core trajectories in the low-excitation regime")
-    figure.subplots_adjust(hspace=0.42, wspace=0.22, top=0.92, bottom=0.09)
-    figure.savefig(OUTPUT_DIR / "vortex_core_trajectories.png", dpi=220)
-    plt.close(figure)
-
-    for nbar, slug in [(0.0, "nbar0"), (0.005, "nbar0005")]:
-        cavity_x, cavity_y, exciton_x, exciton_y = curves[nbar]
-        figure, axes = plt.subplots(1, 2, figsize=(8.4, 4.0))
-        specs = [
-            (axes[0], exciton_x, exciton_y, "Exciton", "navy"),
-            (axes[1], cavity_x, cavity_y, "Cavity", "crimson"),
-        ]
-        for axis, xs, ys, title, color in specs:
-            axis.plot(xs, ys, color=color, lw=1.35)
-            _style_trajectory_axis(axis, title)
-        figure.suptitle(rf"Vortex-core trajectories ($\bar n = {nbar:g}$)")
-        figure.tight_layout()
-        figure.savefig(OUTPUT_DIR / f"vortex_core_trajectories_{slug}.png", dpi=180)
-        plt.close(figure)
-
-    for obsolete_name in (
-        "critical_points_conditioned.png",
-        "vortex_core_trajectories_combined.png",
-    ):
-        obsolete = OUTPUT_DIR / obsolete_name
-        if obsolete.exists():
-            obsolete.unlink()
-
-    # ------------------------------------------------------------------
-    # Poster entropy and angular-momentum comparison.
-    # ------------------------------------------------------------------
-    _save_poster_observable_figures()
-
-    # ------------------------------------------------------------------
-    # Spatial densities at t = 0 for the reference case.
-    # ------------------------------------------------------------------
-    coordinates = np.linspace(-60.0, 60.0, 121)
-    cavity_density = cavity_spatial_density_grid(
-        reference, 0.0, coordinates, coordinates
-    )
-    exciton_density = exciton_spatial_density_grid(
-        reference, 0.0, coordinates, coordinates
-    )
-
-    plt.figure(figsize=(6, 5))
-    image = plt.imshow(
-        cavity_density,
-        extent=[coordinates[0], coordinates[-1], coordinates[0], coordinates[-1]],
-        origin="lower",
-        aspect="equal",
-    )
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Cavity spatial density at t = 0 (n̄ = 0.5)")
-    plt.colorbar(image)
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "cavity_density_t0.png", dpi=180)
-    plt.close()
-
-    plt.figure(figsize=(6, 5))
-    image = plt.imshow(
-        exciton_density,
-        extent=[coordinates[0], coordinates[-1], coordinates[0], coordinates[-1]],
-        origin="lower",
-        aspect="equal",
-    )
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Exciton spatial density at t = 0 (n̄ = 0.5)")
-    plt.colorbar(image)
-    plt.tight_layout()
-    plt.savefig(OUTPUT_DIR / "exciton_density_t0.png", dpi=180)
-    plt.close()
-
-    print(f"Generated figures in {OUTPUT_DIR}")
-    print(f"Reference initial norm = {reference.initial_norm:.12f}")
-    print(f"Reference total Lz variation = {np.ptp(lz_total):.3e}")
-
-
-if __name__ == "__main__":
+if __name__=='__main__':
     main()

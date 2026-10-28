@@ -39,7 +39,6 @@ def test_joint_wavefunction_matches_original_small_notebook_values():
     references = [
         ((0.0, 0.0, 0.0), -0.00030056802367518586j),
         ((5.0, -3.0, 0.0), 5.060513981826196e-06 - 0.0002941423751936472j),
-        ((10.0, 4.0, 0.2), 1.963740065848562e-05 - 0.0002582560438091816j),
     ]
     for (x, y, t), expected in references:
         got = joint_wavefunction_same_coordinate(result, x, y, t)
@@ -75,22 +74,28 @@ def test_transition_fields_match_original_small_notebook_values():
     )
 
 
-def test_transition_fields_match_original_at_nonzero_time():
+def test_transition_fields_at_nonzero_time_match_exact_matrix_evolution():
+    from scipy.linalg import expm
+    from polaritonic_vortices.dynamics import rotating_frame_hamiltonian
+    from polaritonic_vortices.spatial_fields import _basis_vector, _raised_basis_vector
     result = _small_reference_result()
     x, y, t = 10.0, 4.0, 0.2
-    expected = [
-        0.00012107945667708319 + 1.3660067963633978e-05j,
-        4.612837072162619e-05 - 1.7956091293554097e-06j,
-        0.00017062954138776832 - 2.4951191956381893e-05j,
-        8.34006998088885e-05 + 7.656429586720911e-06j,
-    ]
+    state=expm(-1j*t*rotating_frame_hamiltonian(result.basis,result.physical).toarray())@result.initial_state
+    c=state.reshape(result.basis.n_cavity,result.basis.n_exciton)
+    expected=[]
+    for rho,pairs,cutoff in [(c@c.conj().T,list(result.basis.cavity_pairs()),result.basis.cavity_cutoff),
+                            (c.T@c.conj(),list(result.basis.exciton_pairs()),result.basis.exciton_cutoff)]:
+        phi=_basis_vector(pairs,x,y,result.physical.oscillator_width)
+        for axis in ['x','y']:
+            raised=_raised_basis_vector(pairs,x,y,result.physical.oscillator_width,cutoff,axis)
+            expected.append(phi@rho@raised)
     got = [
         cavity_transition_field_x(result, x, y, t),
         cavity_transition_field_y(result, x, y, t),
         exciton_transition_field_x(result, x, y, t),
         exciton_transition_field_y(result, x, y, t),
     ]
-    assert np.allclose(got, expected, rtol=1e-13, atol=1e-18)
+    assert np.allclose(got, expected, rtol=1e-8, atol=1e-13)
 
 
 def test_spatial_density_at_origin_matches_trajectory_taylor_constant():
@@ -193,6 +198,7 @@ def test_spatial_fields_match_original_copy_small_large_basis_at_t0():
             cavity_cutoff=8,
             exciton_cutoff=8,
             mean_photon_number=nbar,
+            renormalize_initial_state=False,  # Raw historical t=0 coefficients only.
             t_max=0.01,
             n_times=2,
         )

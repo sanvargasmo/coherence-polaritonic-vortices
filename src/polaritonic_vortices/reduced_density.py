@@ -21,7 +21,7 @@ def density_trace(rho: np.ndarray) -> float:
     return float(np.trace(rho).real)
 
 
-def purity(rho: np.ndarray, normalize: bool = False) -> float:
+def purity(rho: np.ndarray, normalize: bool = True) -> float:
     """Return Tr(rho^2)."""
     matrix = np.asarray(rho, dtype=np.complex128)
     if normalize:
@@ -32,6 +32,6 @@ def purity(rho: np.ndarray, normalize: bool = False) -> float:
     return float(np.trace(matrix @ matrix).real)
 
 
-def linear_entropy(rho: np.ndarray, normalize: bool = False) -> float:
+def linear_entropy(rho: np.ndarray, normalize: bool = True) -> float:
     """Linear entropy 1 - Tr(rho^2)."""
     return 1.0 - purity(rho, normalize=normalize)

@@ -83,7 +83,7 @@ def test_reduced_states_remain_consistent_at_non_grid_time():
     assert np.isclose(purity(rho_c), purity(rho_x), atol=1e-11)
 
 
-def test_time_rescaling_matches_saved_n05_notebook_output():
+def test_time_rescaling_uses_paper_detuning_and_consistent_units():
     from polaritonic_vortices.observables import rescaled_to_physical_time
 
     result = simulate(
@@ -96,5 +96,8 @@ def test_time_rescaling_matches_saved_n05_notebook_output():
         )
     )
     scaled = np.array([0.0, 1.75, 3.5, 5.37425, 7.0])
-    expected = np.array([0.0, 2.53915721, 5.07831442, 7.79775179, 10.15662883])
-    assert np.allclose(rescaled_to_physical_time(result, scaled), expected, atol=5e-9)
+    p=result.physical
+    width_m=p.oscillator_width*1e-6
+    delta=p.detuning_mev/p.hbar_mev_s*1e-12-p.hbar_si/(4*width_m**2)*(1/p.cavity_mass_kg-1/p.exciton_mass_kg)*1e-12
+    period=2*np.pi/np.sqrt(p.omega_ps_inv**2+delta**2/4)
+    assert np.allclose(rescaled_to_physical_time(result, scaled), scaled*period, atol=1e-13)

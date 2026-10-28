@@ -1,5 +1,7 @@
 """Numerical tools for the polaritonic-vortex research project."""
 
+# Imported at the bottom because the exact solver uses the numerical modules.
+
 from .basis import ProductBasis, in_triangle, triangular_count, triangular_index
 from .dynamics import SimulationResult, build_coupling_matrices, simulate
 from .parameters import PhysicalParameters, SimulationConfig
@@ -63,3 +65,7 @@ __all__ = [
     "joint_wavefunction_grid_same_coordinate",
     "transition_field_grid",
 ]
+
+from .exact_coherent import ExactCoherentEvolution
+from .density_minima import track_density_minimum
+__all__ += ['ExactCoherentEvolution', 'track_density_minimum']

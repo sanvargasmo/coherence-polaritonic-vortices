@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from collections.abc import Callable
+from dataclasses import replace
+import warnings
 import numpy as np
 from scipy.integrate import solve_ivp
-from scipy.sparse import coo_matrix, csr_matrix
+from scipy.sparse import coo_matrix, csr_matrix, diags
 
 from .basis import ProductBasis, in_triangle
 from .initial_state import InitialStateBuilder
@@ -55,6 +57,7 @@ class SimulationResult:
     solver_success: bool
     solver_message: str
     dense_solution: Callable[[float], np.ndarray] | None = field(default=None, repr=False)
+    initial_retained_probability: float = 1.0
 
     @property
     def initial_norm(self) -> float:
@@ -69,6 +72,8 @@ class SimulationResult:
         rapidly oscillating complex amplitudes.
         """
         t = float(time)
+        if not np.isfinite(t) or t < self.times[0] or t > self.times[-1]:
+            raise ValueError('Requested time lies outside the simulated interval')
         if t <= self.times[0]:
             return self.states[:, 0]
         if t >= self.times[-1]:
@@ -81,6 +86,18 @@ class SimulationResult:
         return self.state_at(time).reshape(self.basis.n_cavity, self.basis.n_exciton)
 
 
+def rotating_frame_hamiltonian(basis: ProductBasis, physical: PhysicalParameters):
+    """H/hbar in ps^-1 in the COMMON frame rotating at (Ecal_C+Ecal_X)/2hbar.
+
+    This is a Schroedinger-picture generator in the specified common frame,
+    not an interaction-picture coefficient array used as a spatial state.
+    """
+    am, ap = build_coupling_matrices(basis, physical)
+    imbalance = [na + ma - nb - mb for na, ma in basis.cavity_pairs()
+                 for nb, mb in basis.exciton_pairs()]
+    return am + ap + diags(0.5 * physical.delta_omega_ps_inv * np.asarray(imbalance))
+
+
 def simulate(
     config: SimulationConfig | None = None,
     physical: PhysicalParameters | None = None,
@@ -89,13 +106,20 @@ def simulate(
     physical = physical or PhysicalParameters()
     basis = ProductBasis(config.cavity_cutoff, config.exciton_cutoff)
     initial_state = InitialStateBuilder(basis, physical, config).build()
+    raw = InitialStateBuilder(basis, physical, replace(config, renormalize_initial_state=False)).build()
+    retained = float(np.vdot(raw, raw).real)
+    if retained < 1-1e-6:
+        warnings.warn(f'Initial Fock projection retains {retained:.9f}; normalization does not establish cutoff convergence.', RuntimeWarning)
+    total_numbers = np.asarray([na+ma+nb+mb for na,ma in basis.cavity_pairs()
+                               for nb,mb in basis.exciton_pairs()])
+    unsafe_weight = float(np.sum(np.abs(raw[total_numbers > min(basis.cavity_cutoff,basis.exciton_cutoff)])**2))
+    if unsafe_weight > 1e-6:
+        warnings.warn(f'Initial probability {unsafe_weight:.6g} occupies total-excitation sectors that can leave the local cutoff during exchange; check dynamical convergence or use ExactCoherentEvolution.', RuntimeWarning)
     a_minus, a_plus = build_coupling_matrices(basis, physical)
-    delta_omega = physical.delta_omega_ps_inv
+    hamiltonian = rotating_frame_hamiltonian(basis, physical)
 
     def rhs(t: float, y: np.ndarray) -> np.ndarray:
-        phase_plus = np.exp(1j * delta_omega * t)
-        phase_minus = np.exp(-1j * delta_omega * t)
-        return -1j * (phase_minus * (a_minus @ y) + phase_plus * (a_plus @ y))
+        return -1j * (hamiltonian @ y)
 
     solution = solve_ivp(
         rhs,
@@ -107,6 +131,8 @@ def simulate(
         method=config.method,
         dense_output=True,
     )
+    if not solution.success:
+        raise RuntimeError(solution.message)
     return SimulationResult(
         basis=basis,
         config=config,
@@ -119,4 +145,5 @@ def simulate(
         solver_success=bool(solution.success),
         solver_message=str(solution.message),
         dense_solution=solution.sol,
+        initial_retained_probability=retained,
     )

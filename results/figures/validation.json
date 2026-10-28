@@ -1,0 +1,40 @@
+{
+  "frame": "common rotating at (Ecal_C+Ecal_X)/(2*hbar)",
+  "delta_ps_inv": -2.280339508747792,
+  "tg_ps": 1.4508207802112842,
+  "method": "Exact coherent displacement plus conserved total-excitation <=2 seed",
+  "alpha_label": "|alpha|^2 per Cartesian coherent background, before vortex factor",
+  "cases": {
+    "0.0": {
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 6.661338147750939e-16,
+      "max_seed_norm_error": 8.881784197001252e-16,
+      "exciton_minimum_coverage": 0.15640599001663893,
+      "cavity_minimum_coverage": 0.1913477537437604
+    },
+    "0.005": {
+      "initial_entropy": 0.0,
+      "total_lz_variation": 1.1102230246251565e-15,
+      "max_seed_norm_error": 6.661338147750939e-16,
+      "exciton_minimum_coverage": 0.16139767054908485,
+      "cavity_minimum_coverage": 0.20299500831946754
+    },
+    "0.5": {
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 3.9968028886505635e-15,
+      "max_seed_norm_error": 5.551115123125783e-16
+    },
+    "1.1": {
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 7.327471962526033e-15,
+      "max_seed_norm_error": 7.771561172376096e-16
+    }
+  },
+  "fock_projection_missing_probability": {
+    "8": 0.0636719105113912,
+    "12": 0.001089662218656584,
+    "16": 4.553183412414619e-06,
+    "20": 6.565044619044613e-09,
+    "24": 4.0564218650729345e-12
+  }
+}

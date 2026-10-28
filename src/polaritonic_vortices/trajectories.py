@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from math import factorial
+import warnings
 import numpy as np
 
 from .reduced_density import cavity_density_matrix, exciton_density_matrix
@@ -144,7 +145,8 @@ def cavity_trajectory_point(
     *,
     dimensionless: bool = True,
 ) -> tuple[float, float]:
-    """Cavity vortex-core point from the original quadratic-density method."""
+    """LEGACY quadratic stationary point; not a verified vortex core."""
+    warnings.warn('Legacy quadratic stationary point: may be a saddle or miss the density minimum. Use density_minima.track_density_minimum.', DeprecationWarning, stacklevel=2)
     rho = cavity_density_matrix(result, time)
     coeffs = quadratic_density_coefficients(
         rho,
@@ -163,7 +165,8 @@ def exciton_trajectory_point(
     *,
     dimensionless: bool = True,
 ) -> tuple[float, float]:
-    """Exciton vortex-core point from the original quadratic-density method."""
+    """LEGACY quadratic stationary point; not a verified vortex core."""
+    warnings.warn('Legacy quadratic stationary point: may be a saddle or miss the density minimum. Use density_minima.track_density_minimum.', DeprecationWarning, stacklevel=2)
     rho = exciton_density_matrix(result, time)
     coeffs = quadratic_density_coefficients(
         rho,

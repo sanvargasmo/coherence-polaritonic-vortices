@@ -16,20 +16,17 @@ def test_linear_entropy_matches_original_trrho_schro_formula(n05_short_result):
         assert np.isclose(linear_entropy(rho_c), direct, atol=2e-13)
 
 
-def test_lz_matches_original_n05_reference_values(n05_short_result):
-    # Independently evaluated from the original notebook's rho_CS/rho_XS loops.
-    expected = {
-        0.0: (0.7691437840311992, 0.5479058042156637),
-        0.3: (0.4446382150107357, 0.8724113726876690),
-        1.0: (0.4109242166925929, 0.9061253698082511),
-    }
-    for t, (expected_c, expected_x) in expected.items():
-        actual_c = cavity_lz(n05_short_result, t)
-        actual_x = exciton_lz(n05_short_result, t)
-        assert np.isclose(actual_c.real, expected_c, atol=5e-13)
-        assert np.isclose(actual_x.real, expected_x, atol=5e-13)
-        assert abs(actual_c.imag) < 2e-13
-        assert abs(actual_x.imag) < 2e-13
+def test_lz_matches_operator_expectation(n05_short_result):
+    r=n05_short_result
+    pairs=list(r.basis.cavity_pairs()); index={p:i for i,p in enumerate(pairs)}
+    ax=np.zeros((len(pairs),len(pairs)),complex); ay=ax.copy()
+    for j,(n,m) in enumerate(pairs):
+        if n: ax[index[n-1,m],j]=np.sqrt(n)
+        if m: ay[index[n,m-1],j]=np.sqrt(m)
+    lz=1j*(ay.conj().T@ax-ax.conj().T@ay)
+    for t in [0,.3,1.]:
+        assert abs(cavity_lz(r,t)-np.trace(cavity_density_matrix(r,t)@lz))<1e-13
+        assert abs(exciton_lz(r,t)-np.trace(exciton_density_matrix(r,t)@lz))<1e-13
 
 
 def test_total_lz_is_conserved_in_n05_short_run(n05_short_result):

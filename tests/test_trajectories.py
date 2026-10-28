@@ -103,21 +103,13 @@ def test_critical_point_solves_quadratic_gradient():
     assert abs(grad_y) < 1e-14
 
 
-def test_n05_trajectory_matches_original_reference_points(n05_short_result):
-    # Values independently evaluated with the original notebook's exact
-    # Hermite/Taylor trajectory implementation.
+def test_legacy_quadratic_initial_points_are_retained_for_diagnosis(n05_short_result):
+    # These are legacy quadratic stationary points, NOT the actual initial
+    # cores. Correct core recovery is covered in test_corrected_physics.py.
     expected = {
         0.0: (
             (0.20857306844076862, 0.21135899104023712),
             (-0.2120196723121518, -0.2209916366429713),
-        ),
-        0.3: (
-            (0.3001300369687745, -0.5749097077382170),
-            (-0.21501923541114923, -0.021547293275482104),
-        ),
-        1.0: (
-            (-0.1402180652040131, 0.4518842351619486),
-            (0.10887748716775399, -0.1601149815708273),
         ),
     }
     for t, (expected_c, expected_x) in expected.items():

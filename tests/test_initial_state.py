@@ -10,6 +10,7 @@ def _initial_rho_c00(nbar, cutoff):
         cavity_cutoff=cutoff,
         exciton_cutoff=cutoff,
         mean_photon_number=nbar,
+        renormalize_initial_state=False,  # Explicit legacy raw-coefficient regression.
     )
     basis = ProductBasis(cutoff, cutoff)
     state = InitialStateBuilder(basis, PhysicalParameters(), config).build()

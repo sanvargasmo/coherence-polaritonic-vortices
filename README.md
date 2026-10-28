@@ -1,150 +1,102 @@
 # Coherence in Polaritonic Vortices
 
-Numerical study of coherence, cavity–exciton dynamics, angular momentum, reduced states, vortex-core trajectories, and spatial reconstruction in a coupled polaritonic system.
+Quantum dynamics of coupled cavity and exciton oscillators, starting from vortex-modified coherent states.
 
-The project is organized as a reproducible Python implementation of the physical model. Basis construction, initial-state preparation, time evolution, reduced density matrices, observables, vortex-core trajectories, and spatial fields are implemented as separate tested modules.
+Reference: J. P. Restrepo Cuartas et al., *Dynamics of a quantum polariton vortex: Low-excitation scenario*, Physical Review B **110**, 155433 (2024), [doi:10.1103/PhysRevB.110.155433](https://doi.org/10.1103/PhysRevB.110.155433).
 
-## Reference calculations
+## Model and initial preparation
 
-The angular-momentum, entropy, and spatial-density results use the reference configuration
-
-$$
-\bar n = |\alpha|^2 = 0.5,
-$$
-
-with cavity and exciton triangular cutoffs equal to 8. For this finite basis, the initial-state norm is approximately `0.999949558243`.
-
-### Angular momentum dynamics
-
-The cavity and exciton angular momenta exchange during the evolution, while the total angular momentum remains numerically conserved within the integration tolerance.
-
-![Angular momentum dynamics](results/figures/lz_vs_time.png)
-
-### Linear entropy
-
-The reduced-state linear entropy is defined as
-
-$$
-S_L = 1 - \mathrm{Tr}(\rho^2).
-$$
-
-For the pure bipartite state, the cavity and exciton reduced density matrices have the same purity.
-
-![Linear entropy](results/figures/linear_entropy_vs_time.png)
-
-### Vortex-core trajectories: low-excitation regime
-
-The trajectory comparison focuses on two coherent-state mean excitations:
-
-$$
-\bar n = 0
-\qquad\text{and}\qquad
-\bar n = 0.005.
-$$
-
-Both cases use the same physical parameters. The comparison highlights the evolution of the cavity and exciton vortex cores in the low-excitation regime.
-
-The vortex-core position is obtained from the reduced spatial density. After removing the common Gaussian factor, the density is expanded around the origin as
-
-$$
-F(x,y) \simeq a + bx + cy + dx^2 + ey^2 + gxy.
-$$
-
-The stationary point of this quadratic expansion defines the core coordinates at each time. Trajectories are sampled at 30 fps over a duration of 20, expressed in units of $x/w$ and $y/w$, and displayed inside the radius $R=3$.
-
-![Low-excitation vortex-core comparison](results/figures/vortex_core_trajectories.png)
-
-Individual trajectory panels are available as `results/figures/vortex_core_trajectories_nbar0.png` and `results/figures/vortex_core_trajectories_nbar0005.png`.
-
-### Poster comparison: linear entropy and angular momentum
-
-The dynamical comparison uses the two mean excitations shown in the poster:
-
-$$
-\bar n = 0
-\qquad\text{and}\qquad
-\bar n = 1.1.
-$$
-
-The horizontal axis is the rescaled time $t/t_g$ used in the analysis, with
-
-$$
-t = \frac{t}{t_g}\,\frac{2\pi}{g_1},
-$$
-
-where
-
-$$
-g_1 = \sqrt{\Omega^2 + \left(\frac{\Delta\Omega}{2}\right)^2}.
-$$
-
-For each case, the upper panel shows the linear entropy
-
-$$
-S_L = 1 - \mathrm{Tr}(\rho^2),
-$$
-
-and the lower panel shows the cavity, exciton, and total angular momenta,
-
-$$
-L_{z_C},\qquad L_{z_X},\qquad L_{z_C}+L_{z_X}.
-$$
-
-![Poster entropy and angular-momentum comparison](results/figures/poster_entropy_lz_comparison.png)
-
-The two cases are also available separately as `results/figures/poster_entropy_lz_nbar0.png` and `results/figures/poster_entropy_lz_nbar11.png`.
-
-### Spatial reconstruction at $t=0$
-
-**Cavity reduced spatial density**
-
-![Cavity spatial density](results/figures/cavity_density_t0.png)
-
-**Exciton reduced spatial density**
-
-![Exciton spatial density](results/figures/exciton_density_t0.png)
-
-## Repository structure
-
+We retain the paper's number-conserving quadratic Hamiltonian:
 ```text
-.
-├── src/polaritonic_vortices/
-│   ├── parameters.py
-│   ├── basis.py
-│   ├── initial_state.py
-│   ├── dynamics.py
-│   ├── reduced_density.py
-│   ├── observables.py
-│   ├── trajectories.py
-│   └── spatial_fields.py
-├── examples/
-│   ├── run_mean_photon_scan.py
-│   └── generate_reference_figures.py
-├── tests/
-├── results/
-│   └── figures/
-├── requirements.txt
-└── pyproject.toml
+H/hbar = sum_j [ omega_C a_j^dagger a_j + omega_X b_j^dagger b_j
+                + Omega (a_j^dagger b_j + b_j^dagger a_j) ], j=x,y.
 ```
+The effective energies follow Eq. (2), Ecal_k = E_k - hbar^2/(4 m_k w^2).
+Energies are in meV, times in ps and spatial coordinates in micrometres.
 
-## Reproducibility
-
-The figures displayed in this README are generated with
-
-```bash
-python examples/generate_reference_figures.py
+The paper uses a Gaussian ground-state envelope multiplied by a vortex factor. Here each envelope can be a coherent state:
+```text
+psi_k(x,y,0) = N_k [(x-x_k) + i(y-y_k)] phi_(alpha,alpha)(x,y).
 ```
+The full initial state is a product of the two normalized vortex states. Setting alpha=0 recovers the paper's initial-state form. The parameter |alpha|^2 refers to EACH Cartesian coherent background before applying the vortex factor; it is not the mean photon number of the final vortex state.
 
-A GitHub Actions workflow runs the test suite and regenerates the figures when the scientific source code or figure-generation script changes. The resulting PNG files are stored in `results/figures/` and render directly on GitHub.
+No dissipation or exciton-exciton interactions are added.
 
-To reproduce the calculations locally:
+## Corrected evolution and reference frame
+
+The numerical solver evolves a normalized Fock-space state under the static Hamiltonian in a **common rotating frame**, at (Ecal_C+Ecal_X)/(2 hbar):
+```text
+H_rot/hbar = Delta/2 (N_C-N_X)
+            + Omega sum_j (a_j^dagger b_j + b_j^dagger a_j).
+Delta = (Ecal_C-Ecal_X)/hbar.
+```
+All generated spatial figures refer to this common frame. They are not laboratory-frame positions or coordinate densities reconstructed directly from interaction-picture coefficients. In the conventional interaction picture a_j^dagger b_j has phase exp(+i Delta t).
+
+The numerical solver remains available for cross-checks. It reports the probability retained by the initial Fock projection, normalizes by default, and warns about appreciable missing norm. Normalization by itself does not establish dynamical cutoff convergence.
+
+### Exact solution for the current initial-state family
+
+The figure generator uses `ExactCoherentEvolution`. Write the initial state as a product of local displacement operators acting on a seed. Each vortex-modified coherent state has at most one excitation in its displaced seed, so the bipartite seed has total excitation at most two. The quadratic number-conserving Hamiltonian preserves this total seed excitation exactly.
+
+The method evolves:
+1. The four coherent amplitudes with the single-particle unitary.
+2. The small seed with the Hamiltonian matrix exponential.
+3. Observables with the displacements restored where necessary.
+
+The full physical state still has infinitely many undisplaced Fock components. The local cutoff of two used for the **displaced seed** is exact for this family; it is not the earlier, incorrect cutoff of one per undisplaced subsystem. No coherent-state occupation truncation is used for the reference plots.
+
+## Entanglement and angular momentum
+
+![Entropy and angular momentum](results/figures/poster_entropy_lz_comparison.png)
+
+The comparison uses |alpha|^2=0 and 1.1, with all other preparation parameters fixed. Linear entropy is
+```text
+S_L = 1 - Tr[(rho/Tr rho)^2].
+```
+It vanishes initially for the product preparation. Because the full state remains pure, it measures light-matter entanglement. Local coherent displacements leave the Schmidt spectrum unchanged, so entropy can be evaluated on the exact seed.
+
+Angular momentum includes both the seed and the coherent displacement. It is plotted in units of hbar; cavity and exciton components exchange angular momentum, while their sum is conserved. The corrected observables show periodic dynamics. Earlier irregular curves were affected by insufficient truncation and should not be used as evidence of irreversible behavior.
+
+We retain the earlier time convention t_g=2*pi/sqrt(Omega^2+Delta^2/4), explicitly defined here. It is a reference scale, not a claim that it is the shortest observable recurrence period.
+
+## Spatial reconstruction
+
+![Spatial evolution](results/figures/spatial_density_evolution.png)
+
+Reduced spatial densities are reconstructed from normalized Hermite-Gaussian oscillator functions. In the exact displaced representation the spatial density is the seed density evaluated at r-mu_k(t), where mu_k=sqrt(2)*w*Re alpha_k(t). These figures use a common color scale and show w^2 D(x,y,t).
+
+![Initial densities](results/figures/initial_spatial_densities.png)
+
+An initial vortex zero can lie in a low-intensity tail; the exciton density may therefore look predominantly Gaussian in a linear color scale even though its prepared zero is present.
+
+## Density-minimum tracking
+
+![Local density-minimum tracks](results/figures/vortex_core_trajectories.png)
+
+The new tracker finds stationary points of the **full density including its Gaussian envelope**, checks the gradient and positive Hessian, and tracks local minima within radius 3w. Initial points recover the prescribed vortex cores. Multiple starting guesses and a continuity check are used. Missing or rejected minima produce NaN gaps.
+
+These curves are **accepted local density-minimum tracks**, not proof of persistent topological vortices in mixed reduced states. Gaps mean that the stated numerical acceptance criteria did not identify a trackable minimum; they do not prove that no minimum exists anywhere.
+
+The old quadratic Taylor estimator is retained only for diagnosis and backward compatibility in `trajectories.py`; calls emit a deprecation warning. Its stationary point can be a saddle or fail to coincide with the true core. It is not used for the corrected figures.
+
+## Reproduce and validate
 
 ```bash
 pip install -e .
-pytest
+pip install pytest
+pytest -q
 python examples/generate_reference_figures.py
 ```
 
-## Numerical validation
+The generator writes PNG/PDF figures, sampled NPZ arrays and `results/figures/validation.json`. An optional `--font-path` selects a local font; the default is DejaVu Serif.
 
-The test suite covers basis dimensions and indexing, coherent-state parameterization, sparse coupling matrices, norm conservation, reduced density matrices, linear entropy, angular momentum, Hermite/Taylor vortex-core trajectories, trajectory sampling, and spatial-field reconstruction.
+Validation covers:
+- Independent matrix-exponential and numerical Schrodinger evolution.
+- Exact initial-state coefficients versus the original coherent/vortex construction.
+- Exact displaced evolution versus an independently integrated Fock-space state.
+- Normalization, positivity, matching reduced entropies and angular-momentum conservation.
+- Spatial-density normalization through Gauss-Hermite quadrature.
+- Recovery of the prepared core and classification of tracked local minima.
+- Full-state Fock projections for cutoffs 8, 12, 16, 20 and 24.
+
+Historical raw initial-state regressions explicitly disable normalization. Historical nonzero-time notebook numbers are not used as physical ground truth after the evolution convention was corrected.
