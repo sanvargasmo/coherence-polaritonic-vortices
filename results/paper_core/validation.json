@@ -1,0 +1,120 @@
+{
+  "definition": "F_k(r,t)=w^2 exp(|r|^2/w^2) D_k(r,t); track continuous local minima",
+  "envelope": "fixed at original origin, as in the paper; no Taylor truncation",
+  "state_evolution": "exact coherent displacement plus conserved total-excitation <=2 seed; all undisplaced coherent manifolds retained",
+  "frame": "common rotating frame",
+  "time_window_ps": [
+    0,
+    20.0
+  ],
+  "tg_ps": 1.4508207802112842,
+  "alpha2_definition": "Per Cartesian coherent background before vortex imprint; NOT final mean photon number",
+  "search_radius_over_w": 12.0,
+  "max_accepted_step_over_w": 0.5,
+  "cases": {
+    "0": {
+      "initial_mean_photons": 0.40983606557377017,
+      "initial_mean_excitons": 0.40983606557377006,
+      "cavity": {
+        "accepted_fraction": 0.9313358302122348,
+        "max_gradient_residual": 1.244136672267096e-13,
+        "no_candidate_samples": 0,
+        "continuity_rejected_samples": 55,
+        "initial_core_error": 5.551115123125783e-16,
+        "minimum_hessian_factor": 0.06972165166454102,
+        "multiple_candidate_fraction": 0.13108614232209737
+      },
+      "exciton": {
+        "accepted_fraction": 0.9313358302122348,
+        "max_gradient_residual": 2.8308259206579057e-13,
+        "no_candidate_samples": 0,
+        "continuity_rejected_samples": 55,
+        "initial_core_error": 8.005932084973442e-16,
+        "minimum_hessian_factor": 0.012262040194865098,
+        "multiple_candidate_fraction": 0.21098626716604243
+      },
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 6.661338147750939e-16,
+      "min_entropy": -4.440892098500626e-16,
+      "max_entropy": 0.20405830186845297
+    },
+    "0.005": {
+      "initial_mean_photons": 0.4127149321266967,
+      "initial_mean_excitons": 0.43007434944237893,
+      "cavity": {
+        "accepted_fraction": 0.9313358302122348,
+        "max_gradient_residual": 3.071226871403499e-14,
+        "no_candidate_samples": 0,
+        "continuity_rejected_samples": 55,
+        "initial_core_error": 4.002966042486721e-16,
+        "minimum_hessian_factor": 0.0045667081394544645,
+        "multiple_candidate_fraction": 0.12109862671660425
+      },
+      "exciton": {
+        "accepted_fraction": 0.9313358302122348,
+        "max_gradient_residual": 1.2791993218845338e-13,
+        "no_candidate_samples": 0,
+        "continuity_rejected_samples": 55,
+        "initial_core_error": 7.108895957933346e-16,
+        "minimum_hessian_factor": 0.00470082225216435,
+        "multiple_candidate_fraction": 0.2247191011235955
+      },
+      "initial_entropy": 0.0,
+      "total_lz_variation": 1.1102230246251565e-15,
+      "min_entropy": -2.220446049250313e-16,
+      "max_entropy": 0.20696526824509975
+    },
+    "0.5": {
+      "initial_mean_photons": 1.7692307692307703,
+      "initial_mean_excitons": 1.5479452054794522,
+      "cavity": {
+        "accepted_fraction": 0.6966292134831461,
+        "max_gradient_residual": 5.277009425129029e-14,
+        "no_candidate_samples": 216,
+        "continuity_rejected_samples": 27,
+        "initial_core_error": 0.0,
+        "minimum_hessian_factor": 0.02469861669777608,
+        "multiple_candidate_fraction": 0.08739076154806492
+      },
+      "exciton": {
+        "accepted_fraction": 0.634207240948814,
+        "max_gradient_residual": 6.008322009427111e-14,
+        "no_candidate_samples": 266,
+        "continuity_rejected_samples": 27,
+        "initial_core_error": 2.0471501066083613e-15,
+        "minimum_hessian_factor": 0.026335913518898395,
+        "multiple_candidate_fraction": 0.05118601747815231
+      },
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 4.440892098500626e-15,
+      "min_entropy": -2.220446049250313e-16,
+      "max_entropy": 0.4678169683288971
+    },
+    "1.1": {
+      "initial_mean_photons": 3.514645303575371,
+      "initial_mean_excitons": 2.8073200143437034,
+      "cavity": {
+        "accepted_fraction": 0.6117353308364545,
+        "max_gradient_residual": 1.4349241755093954e-13,
+        "no_candidate_samples": 284,
+        "continuity_rejected_samples": 27,
+        "initial_core_error": 2.482534153247273e-16,
+        "minimum_hessian_factor": 0.005128008005012091,
+        "multiple_candidate_fraction": 0.10112359550561797
+      },
+      "exciton": {
+        "accepted_fraction": 0.4781523096129838,
+        "max_gradient_residual": 2.665018003369436e-13,
+        "no_candidate_samples": 391,
+        "continuity_rejected_samples": 27,
+        "initial_core_error": 3.6418022968069345e-15,
+        "minimum_hessian_factor": 0.007993386681776987,
+        "multiple_candidate_fraction": 0.05118601747815231
+      },
+      "initial_entropy": -2.220446049250313e-16,
+      "total_lz_variation": 7.327471962526033e-15,
+      "min_entropy": -2.220446049250313e-16,
+      "max_entropy": 0.43579437660427656
+    }
+  }
+}
